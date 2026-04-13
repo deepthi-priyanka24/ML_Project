@@ -10,6 +10,25 @@ const tabs = [
 const defaultText =
   'The ministry approved a new student scholarship program for first-year university students.'
 
+const fallbackExamples = [
+  {
+    label: 'real',
+    text: 'City council approved a 2026 budget allocating funds for road repair and public school upgrades.'
+  },
+  {
+    label: 'fake',
+    text: 'Scientists confirm drinking silver water instantly prevents every virus and makes people immortal.'
+  },
+  {
+    label: 'real',
+    text: 'The health department released a report showing a decline in seasonal flu admissions this quarter.'
+  },
+  {
+    label: 'fake',
+    text: 'Breaking: hidden moon base discovered beneath a shopping mall, officials deny all evidence.'
+  }
+]
+
 async function readJsonResponse(response) {
   const contentType = response.headers.get('content-type') || ''
   const bodyText = await response.text()
@@ -41,6 +60,8 @@ export default function App() {
   const [examples, setExamples] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const datasetItems = examples.length > 0 ? examples : fallbackExamples
 
   useEffect(() => {
     Promise.allSettled([
@@ -203,8 +224,13 @@ export default function App() {
         {activeTab === 'dataset' && (
           <section className="panel">
             <h2>Dataset preview</h2>
+            <p className="muted">
+              {examples.length > 0
+                ? 'Live samples loaded from the backend dataset.'
+                : 'Showing sample records while backend data is unavailable.'}
+            </p>
             <div className="dataset-list">
-              {examples.map((item, index) => (
+              {datasetItems.map((item, index) => (
                 <article key={`${item.text}-${index}`} className="dataset-item">
                   <span className={item.label === 'real' ? 'tag real' : 'tag fake'}>{item.label}</span>
                   <p>{item.text}</p>
@@ -214,30 +240,44 @@ export default function App() {
           </section>
         )}
 
-        {activeTab === 'model' && metrics && (
+        {activeTab === 'model' && (
           <section className="grid-two">
             <div className="panel">
               <h2>Model metrics</h2>
               <ul className="metrics-list">
-                <li>Accuracy: {Math.round(metrics.accuracy * 100)}%</li>
-                <li>Fake precision: {Math.round(metrics.report.fake.precision * 100)}%</li>
-                <li>Real precision: {Math.round(metrics.report.real.precision * 100)}%</li>
-                <li>Training samples: {metrics.samples}</li>
+                <li>Accuracy: {metrics ? `${Math.round(metrics.accuracy * 100)}%` : 'Not loaded yet'}</li>
+                <li>
+                  Fake precision:{' '}
+                  {metrics ? `${Math.round(metrics.report.fake.precision * 100)}%` : 'Available when API is running'}
+                </li>
+                <li>
+                  Real precision:{' '}
+                  {metrics ? `${Math.round(metrics.report.real.precision * 100)}%` : 'Available when API is running'}
+                </li>
+                <li>Training samples: {metrics ? metrics.samples : 'Dataset loaded in backend'}</li>
+                <li>Vectorizer: TF-IDF word + character n-grams</li>
+                <li>Classifier: Calibrated Linear SVM</li>
               </ul>
             </div>
             <div className="panel">
               <h2>Confusion matrix</h2>
-              <div className="matrix">
-                <span />
-                <span>Pred fake</span>
-                <span>Pred real</span>
-                <span>Actual fake</span>
-                <span>{metrics.matrix[0][0]}</span>
-                <span>{metrics.matrix[0][1]}</span>
-                <span>Actual real</span>
-                <span>{metrics.matrix[1][0]}</span>
-                <span>{metrics.matrix[1][1]}</span>
-              </div>
+              {metrics ? (
+                <div className="matrix">
+                  <span />
+                  <span>Pred fake</span>
+                  <span>Pred real</span>
+                  <span>Actual fake</span>
+                  <span>{metrics.matrix[0][0]}</span>
+                  <span>{metrics.matrix[0][1]}</span>
+                  <span>Actual real</span>
+                  <span>{metrics.matrix[1][0]}</span>
+                  <span>{metrics.matrix[1][1]}</span>
+                </div>
+              ) : (
+                <p className="muted">
+                  Start the Flask backend to load live evaluation metrics and confusion matrix values.
+                </p>
+              )}
             </div>
           </section>
         )}
