@@ -64,35 +64,42 @@ export default function App() {
   const datasetItems = examples.length > 0 ? examples : fallbackExamples
 
   useEffect(() => {
-    Promise.allSettled([
-      fetch('/api/metrics').then(async (response) => {
-        const data = await readJsonResponse(response)
-        if (!response.ok) {
-          throw new Error((data && data.error) || 'Failed to load metrics.')
-        }
-        return data
-      }),
-      fetch('/api/examples').then(async (response) => {
+    fetch('/api/examples')
+      .then(async (response) => {
         const data = await readJsonResponse(response)
         if (!response.ok) {
           throw new Error((data && data.error) || 'Failed to load examples.')
         }
         return data
       })
-    ]).then(([metricsResult, examplesResult]) => {
-      if (metricsResult.status === 'fulfilled') {
-        setMetrics(metricsResult.value)
-      }
-
-      if (examplesResult.status === 'fulfilled') {
-        setExamples(examplesResult.value.examples || [])
-      }
-
-      if (metricsResult.status === 'rejected' || examplesResult.status === 'rejected') {
-        setError('Some dashboard data could not load. Check that the Flask API is running.')
-      }
-    })
+      .then((data) => {
+        setExamples(data.examples || [])
+      })
+      .catch(() => {
+        setError('Dataset samples could not load. Check that the Flask API is running.')
+      })
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'model' || metrics) {
+      return
+    }
+
+    fetch('/api/metrics')
+      .then(async (response) => {
+        const data = await readJsonResponse(response)
+        if (!response.ok) {
+          throw new Error((data && data.error) || 'Failed to load metrics.')
+        }
+        return data
+      })
+      .then((data) => {
+        setMetrics(data)
+      })
+      .catch(() => {
+        setError('Model metrics could not load. Check that the Flask API is running.')
+      })
+  }, [activeTab, metrics])
 
   const accuracy = useMemo(() => {
     if (!metrics) return '—'
@@ -255,8 +262,8 @@ export default function App() {
                   {metrics ? `${Math.round(metrics.report.real.precision * 100)}%` : 'Available when API is running'}
                 </li>
                 <li>Training samples: {metrics ? metrics.samples : 'Dataset loaded in backend'}</li>
-                <li>Vectorizer: TF-IDF word + character n-grams</li>
-                <li>Classifier: Calibrated Linear SVM</li>
+                <li>Vectorizer: TF-IDF word n-grams</li>
+                <li>Classifier: Logistic Regression</li>
               </ul>
             </div>
             <div className="panel">

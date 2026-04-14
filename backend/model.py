@@ -3,17 +3,11 @@ from __future__ import annotations
 from functools import lru_cache
 
 import pandas as pd
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import ComplementNB
-from sklearn.ensemble import VotingClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.svm import LinearSVC
 
 from backend.dataset import load_dataset
 
@@ -34,45 +28,22 @@ def train_model() -> tuple[Pipeline, dict[str, object]]:
         stratify=df["label"],
     )
 
-    word_vectorizer = TfidfVectorizer(
+    vectorizer = TfidfVectorizer(
         stop_words="english",
         ngram_range=(1, 2),
-        max_features=8000,
-        min_df=1,
-    )
-    char_vectorizer = TfidfVectorizer(
-        analyzer="char_wb",
-        ngram_range=(3, 5),
-        max_features=12000,
+        max_features=10000,
         min_df=1,
     )
 
     model = Pipeline(
         steps=[
-            (
-                "features",
-                ColumnTransformer(
-                    transformers=[
-                        ("word", word_vectorizer, 0),
-                        ("char", char_vectorizer, 0),
-                    ],
-                    remainder="drop",
-                    sparse_threshold=0.3,
-                ),
-            ),
-            (
-                "classifier",
-                CalibratedClassifierCV(
-                    estimator=LinearSVC(class_weight="balanced"),
-                    method="sigmoid",
-                    cv=3,
-                ),
-            ),
+            ("vectorizer", vectorizer),
+            ("classifier", LogisticRegression(max_iter=250, class_weight="balanced")),
         ]
     )
-    model.fit(x_train.to_frame(), y_train)
+    model.fit(x_train, y_train)
 
-    predictions = model.predict(x_test.to_frame())
+    predictions = model.predict(x_test)
     metrics = {
         "accuracy": accuracy_score(y_test, predictions),
         "report": classification_report(y_test, predictions, output_dict=True, zero_division=0),
@@ -85,7 +56,7 @@ def train_model() -> tuple[Pipeline, dict[str, object]]:
 
 def predict_text(text: str) -> dict[str, object]:
     model, _ = train_model()
-    probabilities = model.predict_proba(pd.DataFrame({"text": [text]}))[0]
+    probabilities = model.predict_proba([text])[0]
     classes = list(model.classes_)
     fake_index = classes.index("fake")
     real_index = classes.index("real")
